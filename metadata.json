@@ -1,0 +1,7 @@
+{
+  "name": "Yann's Note - Hub de Clarté",
+  "description": "Plateforme SaaS de transformation du chaos en clarté pour Étudiants, Répétiteurs et PME au Cameroun. Intégration IA Hybride et NotebookLM.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
