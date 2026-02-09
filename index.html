@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Yann's Note - Le Lion de la Clarté</title>
+    <title>Yann's Note - Hub de Clarté</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -11,45 +11,86 @@
         theme: {
           extend: {
             colors: {
-              royalBlue: '#001F3F',
-              royalGold: '#FFD700',
-              steelGrey: '#B0B0B0',
-              paperWhite: '#F5F5F5',
+              royalBlue: '#001220',
+              royalGold: '#F0B90B',
+              deepSpace: '#000810',
+              glass: 'rgba(255, 255, 255, 0.05)',
             },
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
-              serif: ['Merriweather', 'serif'],
+              serif: ['Playfair Display', 'serif'],
+              mono: ['JetBrains Mono', 'monospace'],
             },
             animation: {
               'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-              'shine': 'shine 1s forwards',
+              'float': 'float 6s ease-in-out infinite',
+              'shine': 'shine 2s infinite',
+              'slide-up': 'slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1)',
+              'glow': 'glow 2s ease-in-out infinite alternate',
             },
             keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-20px)' },
+              },
               shine: {
-                '100%': { left: '125%' },
+                '0%': { left: '-100%' },
+                '100%': { left: '200%' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              },
+              glow: {
+                '0%': { boxShadow: '0 0 5px #F0B90B, 0 0 10px #F0B90B' },
+                '100%': { boxShadow: '0 0 20px #F0B90B, 0 0 30px #F0B90B' },
               }
             }
           },
         },
       };
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Playfair+Display:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
       body {
-        background-color: #001F3F;
+        background-color: #000810;
         color: #F5F5F5;
         font-family: 'Inter', sans-serif;
-      }
-      .gold-text {
-        color: #FFD700;
-      }
-      .gold-border {
-        border-color: #FFD700;
+        overflow-x: hidden;
       }
       .glass-panel {
-        background: rgba(0, 31, 63, 0.7);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 215, 0, 0.2);
+        background: rgba(0, 18, 32, 0.6);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(240, 185, 11, 0.15);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+      }
+      .glass-panel-hover:hover {
+        background: rgba(0, 18, 32, 0.8);
+        border-color: rgba(240, 185, 11, 0.4);
+        box-shadow: 0 0 20px rgba(240, 185, 11, 0.1);
+      }
+      .text-glow {
+        text-shadow: 0 0 10px rgba(240, 185, 11, 0.3);
+      }
+      .bg-grid-pattern {
+        background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 40px 40px;
+      }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #000810;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #001F3F;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #F0B90B;
       }
     </style>
   <script type="importmap">
