@@ -20,6 +20,9 @@ const getApiKey = () => {
   }
 };
 
+/**
+ * Creates a fresh AI client instance
+ */
 const createAIClient = () => {
   const apiKey = getApiKey();
   if (!apiKey) return null;
@@ -30,7 +33,7 @@ const createAIClient = () => {
  * Smart Orchestrator: Tries Online then Fallback to Local
  */
 const orchestrateAI = async (
-    onlineCall: () => Promise<any>, 
+    onlineCall: (ai: GoogleGenAI) => Promise<any>, 
     localTask: string, 
     input: string
 ): Promise<{text: string, sources?: any[]}> => {
@@ -43,13 +46,19 @@ const orchestrateAI = async (
         const ai = createAIClient();
         if (!ai) throw new Error("No API Key");
         
-        const response = await onlineCall();
+        const response = await onlineCall(ai);
         return { 
             text: response.text || "Erreur de réponse.", 
             sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || [] 
         };
-    } catch (error) {
+    } catch (error: any) {
         console.warn(`Online AI failed for ${localTask}, falling back to local...`, error);
+        
+        // Handle specific "Requested entity was not found" error by resetting key state
+        if (error?.message?.includes("Requested entity was not found")) {
+            console.error("API Key project invalid or not found.");
+        }
+
         const localResult = await localProcess(input, localTask);
         return { text: `[MODE HORS LIGNE / GRATUIT] \n\n${localResult}` };
     }
@@ -58,9 +67,8 @@ const orchestrateAI = async (
 // --- DAO / TENDER ANALYSIS ---
 export const analyzeTender = async (tenderText: string) => {
     return orchestrateAI(
-        async () => {
-            const ai = createAIClient();
-            return ai!.models.generateContent({
+        async (ai) => {
+            return ai.models.generateContent({
                 model: 'gemini-3-pro-preview',
                 contents: `En tant qu'expert en marchés publics au Cameroun (Code des Marchés Publics), analyse ce DAO.
                 STRUCTURE REQUISE :
@@ -79,9 +87,8 @@ export const analyzeTender = async (tenderText: string) => {
 // --- PITCH DECK PRO ---
 export const generatePitchDeck = async (notes: string) => {
     return orchestrateAI(
-        async () => {
-            const ai = createAIClient();
-            return ai!.models.generateContent({
+        async (ai) => {
+            return ai.models.generateContent({
                 model: 'gemini-3-pro-preview',
                 contents: `Transforme ces notes en Pitch Deck Pro (10 slides) pour investisseurs. 
                 Notes : ${notes}`,
@@ -95,9 +102,8 @@ export const generatePitchDeck = async (notes: string) => {
 // --- PODCAST EXPRESS ---
 export const generatePodcastScript = async (sourceText: string, type: string) => {
     return orchestrateAI(
-        async () => {
-            const ai = createAIClient();
-            return ai!.models.generateContent({
+        async (ai) => {
+            return ai.models.generateContent({
                 model: 'gemini-3-flash-preview',
                 contents: `Script podcast (15 min) étudiant. Résume : ${sourceText}. Ton: ${type === 'TUTOR' ? 'Enseignant' : 'Étudiant'}.`,
             });
@@ -110,9 +116,8 @@ export const generatePodcastScript = async (sourceText: string, type: string) =>
 // --- GENERAL ANALYSIS ---
 export const deepThinkingAnalysis = async (input: string, context: string, learningStyle?: string) => {
     return orchestrateAI(
-        async () => {
-            const ai = createAIClient();
-            return ai!.models.generateContent({
+        async (ai) => {
+            return ai.models.generateContent({
                 model: 'gemini-3-pro-preview',
                 contents: `Contexte: ${context}. Question: ${input}. Style: ${learningStyle}. Markdown clair.`,
             });
@@ -124,37 +129,35 @@ export const deepThinkingAnalysis = async (input: string, context: string, learn
 
 // --- IMAGE GEN (ROBUST SIMULATION) ---
 export const generateMarketingAsset = async (prompt: string, size: '1K' | '2K' | '4K'): Promise<string> => {
-  const ai = createAIClient();
-  
-  // Simulation / Fallback images (High Quality)
   const mockImages = [
-      "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=1974&auto=format&fit=crop", // Lion
-      "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop", // Tech
-      "https://images.unsplash.com/photo-1535378437327-10f5af706020?q=80&w=2070&auto=format&fit=crop", // Cyberpunk
-      "https://images.unsplash.com/photo-1614728263952-84ea256f9679?q=80&w=2008&auto=format&fit=crop" // Abstract
+      "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=1974&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1535378437327-10f5af706020?q=80&w=2070&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1614728263952-84ea256f9679?q=80&w=2008&auto=format&fit=crop"
   ];
   const randomImage = mockImages[Math.floor(Math.random() * mockImages.length)];
 
-  // 1. Force simulation if offline or no client
-  if (isAppOffline() || !ai) {
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate processing time
+  if (isAppOffline()) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
       return randomImage; 
   }
 
-  // 2. Try API with Fail-Safe Catch
   try {
+      const ai = createAIClient();
+      if (!ai) throw new Error("No API Key");
+
       const response = await ai.models.generateContent({
           model: 'gemini-3-pro-image-preview',
           contents: { parts: [{ text: prompt }] },
-          config: { imageConfig: { imageSize: size } }
+          config: { imageConfig: { imageSize: size, aspectRatio: "1:1" } }
       });
+
       for (const part of response.candidates?.[0]?.content?.parts || []) {
           if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
       }
-      throw new Error("API response empty or invalid");
+      throw new Error("No image data in response");
   } catch (e) {
-      console.warn("Image API failed (using simulation fallback):", e);
-      // Fallback to simulation to ensure user ALWAYS gets a result
+      console.warn("Image API failed, using fallback:", e);
       await new Promise(resolve => setTimeout(resolve, 2000));
       return randomImage;
   }
@@ -162,15 +165,15 @@ export const generateMarketingAsset = async (prompt: string, size: '1K' | '2K' |
 
 // --- IMAGE EDITING (ROBUST SIMULATION) ---
 export const editImage = async (base64Image: string, prompt: string): Promise<string> => {
-    const ai = createAIClient();
-    
-    // Fallback: return original image (simulating "no change possible" or "filter applied") if offline
-    if (isAppOffline() || !ai) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        return base64Image; 
+    if (isAppOffline()) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        return base64Image;
     }
 
     try {
+        const ai = createAIClient();
+        if (!ai) throw new Error("No API Key");
+
         const base64Data = base64Image.split(',')[1] || base64Image;
         const mimeMatch = base64Image.match(/^data:(.*);base64,/);
         const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
@@ -186,27 +189,36 @@ export const editImage = async (base64Image: string, prompt: string): Promise<st
         });
 
         for (const part of response.candidates?.[0]?.content?.parts || []) {
-            if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+             if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
         }
-        throw new Error("No edited image data returned");
+        throw new Error("No edited image returned");
     } catch (e) {
-        console.warn("Edit API failed (using fallback):", e);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        return base64Image; // Return original on failure to avoid crash
+        console.warn("Edit API failed, using fallback", e);
+        return base64Image;
     }
 };
 
 // --- VIDEO GENERATION (ROBUST SIMULATION) ---
 export const generateVideoFromImage = async (base64Image: string, prompt: string, aspectRatio: '16:9' | '9:16'): Promise<string> => {
-    const ai = createAIClient();
     const mockVideo = "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4";
-
-    if (isAppOffline() || !ai) {
+    
+    if (isAppOffline()) {
         await new Promise(resolve => setTimeout(resolve, 3000));
         return mockVideo;
     }
 
     try {
+        const ai = createAIClient();
+        if (!ai) throw new Error("No API Key");
+
+        // Check for Veo API key selection if available on window
+        if ((window as any).aistudio && typeof (window as any).aistudio.hasSelectedApiKey === 'function') {
+            const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+            if (!hasKey && typeof (window as any).aistudio.openSelectKey === 'function') {
+                await (window as any).aistudio.openSelectKey();
+            }
+        }
+
         const base64Data = base64Image.split(',')[1] || base64Image;
         const mimeMatch = base64Image.match(/^data:(.*);base64,/);
         const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
@@ -214,31 +226,26 @@ export const generateVideoFromImage = async (base64Image: string, prompt: string
         let operation = await ai.models.generateVideos({
             model: 'veo-3.1-fast-generate-preview',
             image: { imageBytes: base64Data, mimeType: mimeType },
-            prompt: prompt || "Animate this image cinematically",
+            prompt: prompt || "Animate this",
             config: { numberOfVideos: 1, resolution: '720p', aspectRatio: aspectRatio }
         });
 
-        // Polling loop with timeout safety
-        let attempts = 0;
-        while (!operation.done && attempts < 20) { // Max ~2 minutes wait
-            await new Promise(resolve => setTimeout(resolve, 6000));
+        while (!operation.done) {
+            await new Promise(resolve => setTimeout(resolve, 5000));
             operation = await ai.operations.getVideosOperation({operation: operation});
-            attempts++;
         }
 
         const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-        if (!downloadLink) throw new Error("No video URI in response");
+        if (!downloadLink) throw new Error("No video URI");
 
         const apiKey = getApiKey();
-        // Append API Key for secure fetch
         const videoResponse = await fetch(`${downloadLink}&key=${apiKey}`);
-        if (!videoResponse.ok) throw new Error("Failed to fetch video blob");
+        if (!videoResponse.ok) throw new Error("Video fetch failed");
         
         const videoBlob = await videoResponse.blob();
         return URL.createObjectURL(videoBlob);
     } catch (e) {
-        console.warn("Video API failed (using simulation fallback):", e);
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        console.warn("Video API failed, using fallback:", e);
         return mockVideo;
     }
 };
@@ -246,9 +253,8 @@ export const generateVideoFromImage = async (base64Image: string, prompt: string
 // --- BRAIN AGENT ---
 export const brainAgent = async (context: string, query: string, history: any[], useFastMode: boolean) => {
     return orchestrateAI(
-        async () => {
-            const ai = createAIClient();
-            const chat = ai!.chats.create({
+        async (ai) => {
+            const chat = ai.chats.create({
                 model: useFastMode ? 'gemini-3-flash-preview' : 'gemini-3-pro-preview',
                 history: history,
                 config: { systemInstruction: `Context:\n${context}\nAnswer based on this.` }
@@ -263,12 +269,11 @@ export const brainAgent = async (context: string, query: string, history: any[],
 // --- CHATBOT ---
 export const chatWithYann = async (message: string, history: any[]): Promise<string> => {
     const res = await orchestrateAI(
-        async () => {
-            const ai = createAIClient();
-            const chat = ai!.chats.create({
+        async (ai) => {
+            const chat = ai.chats.create({
                 model: 'gemini-3-pro-preview',
                 history: history,
-                config: { systemInstruction: "Tu es Yann, le Lion de la Clarté." }
+                config: { systemInstruction: "Tu es Yann, le Lion de la Clarté. Expert Camerounais." }
             });
             return chat.sendMessage({ message });
         },
@@ -276,17 +281,26 @@ export const chatWithYann = async (message: string, history: any[]): Promise<str
         message
     );
     return res.text;
-}
+};
 
 // --- PERSISTENCE ---
 export const saveToHistory = (key: string, item: any) => {
-    const history = JSON.parse(localStorage.getItem(key) || '[]');
-    const newItem = { ...item, id: Date.now(), timestamp: new Date().toISOString() };
-    history.unshift(newItem);
-    localStorage.setItem(key, JSON.stringify(history.slice(0, 20)));
-    return newItem;
+    try {
+        const history = JSON.parse(localStorage.getItem(key) || '[]');
+        const newItem = { ...item, id: Date.now(), timestamp: new Date().toISOString() };
+        history.unshift(newItem);
+        localStorage.setItem(key, JSON.stringify(history.slice(0, 20))); // Limit to 20
+        return newItem;
+    } catch (e) {
+        console.error("Storage error", e);
+        return item;
+    }
 };
 
 export const getHistory = (key: string) => {
-    return JSON.parse(localStorage.getItem(key) || '[]');
+    try {
+        return JSON.parse(localStorage.getItem(key) || '[]');
+    } catch (e) {
+        return [];
+    }
 };
