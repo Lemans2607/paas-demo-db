@@ -1,6 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Loader2, Bot } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Bot, Sparkles } from 'lucide-react';
 import { chatWithYann } from '../services/geminiService';
+import MarkdownText from './MarkdownText';
 
 const ChatBot: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -9,23 +11,29 @@ const ChatBot: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const SUGGESTIONS = [
+      "Comment créer un DAO ?",
+      "C'est quoi la Tontine 2.0 ?",
+      "Aide-moi avec mon cours",
+      "Mon Pitch Deck est prêt ?"
+  ];
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(scrollToBottom, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  const handleSend = async (textOverride?: string) => {
+    const textToSend = textOverride || input;
+    if (!textToSend.trim()) return;
     
-    const userMsg = input;
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    setMessages(prev => [...prev, { role: 'user', text: textToSend }]);
     setLoading(true);
 
     try {
-      // Transform history for API if needed, simpler here
-      const response = await chatWithYann(userMsg, messages.map(m => ({
+      const response = await chatWithYann(textToSend, messages.map(m => ({
           role: m.role,
           parts: [{ text: m.text }]
       })));
@@ -42,13 +50,13 @@ const ChatBot: React.FC = () => {
     <>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 bg-royalGold text-royalBlue p-4 rounded-full shadow-2xl hover:bg-yellow-400 transition-all duration-300 z-50 flex items-center justify-center border-2 border-white/20"
+        className="fixed bottom-6 right-6 bg-royalGold text-royalBlue p-4 rounded-full shadow-2xl hover:bg-yellow-400 transition-all duration-300 z-50 flex items-center justify-center border-2 border-white/20 hover:scale-110"
       >
         {isOpen ? <X size={28} /> : <MessageCircle size={28} />}
       </button>
 
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-80 md:w-96 h-[500px] bg-[#00152b] border border-white/20 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden animate-[shine_0.3s_ease-out]">
+        <div className="fixed bottom-24 right-4 left-4 md:left-auto md:right-6 md:w-96 h-[60vh] md:h-[500px] bg-[#00152b] border border-white/20 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden animate-[shine_0.3s_ease-out]">
           <div className="bg-royalBlue p-4 border-b border-white/10 flex items-center gap-3">
             <div className="w-10 h-10 bg-royalGold/20 rounded-full flex items-center justify-center text-royalGold">
                <Bot size={24} />
@@ -64,14 +72,25 @@ const ChatBot: React.FC = () => {
 
           <div className="flex-grow p-4 overflow-y-auto space-y-4 custom-scrollbar">
             {messages.length === 0 && (
-              <div className="text-center text-gray-400 mt-10">
-                <p>Bonjour ! Je suis l'IA de Yann.<br/>Posez-moi une question sur vos cours ou votre business.</p>
+              <div className="text-center text-gray-400 mt-4">
+                <p className="mb-4">Bonjour ! Je suis l'IA de Yann.<br/>Posez-moi une question sur vos cours ou votre business.</p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                    {SUGGESTIONS.map(s => (
+                        <button 
+                            key={s} 
+                            onClick={() => handleSend(s)}
+                            className="bg-white/5 border border-white/10 px-3 py-1 rounded-full text-xs hover:bg-royalGold/20 hover:text-royalGold transition-colors"
+                        >
+                            {s}
+                        </button>
+                    ))}
+                </div>
               </div>
             )}
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-royalGold text-royalBlue rounded-tr-none' : 'bg-white/10 text-white rounded-tl-none'}`}>
-                  {msg.text}
+                <div className={`max-w-[85%] p-3 rounded-2xl text-sm shadow-md ${msg.role === 'user' ? 'bg-royalGold text-royalBlue rounded-tr-none' : 'bg-white/10 text-white rounded-tl-none border border-white/10'}`}>
+                  <MarkdownText content={msg.text} isUser={msg.role === 'user'} />
                 </div>
               </div>
             ))}
@@ -97,9 +116,9 @@ const ChatBot: React.FC = () => {
                   onKeyDown={e => e.key === 'Enter' && handleSend()}
                />
                <button 
-                  onClick={handleSend}
+                  onClick={() => handleSend()}
                   disabled={loading}
-                  className="bg-royalGold text-royalBlue p-2 rounded-full hover:bg-yellow-400 transition-colors disabled:opacity-50"
+                  className="bg-royalGold text-royalBlue p-2 rounded-full hover:bg-yellow-400 transition-colors disabled:opacity-50 hover:scale-105 transform"
                >
                   <Send size={18} />
                </button>
